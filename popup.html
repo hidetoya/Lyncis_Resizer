@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Lyncis Resizer</title>
+	<script src="popup.js"></script>
+	<style>
+		body{
+			width: 240px;
+		}
+		body, textarea, button, input{
+			font-family: sans-serif;
+			font-size: 12px;
+		}
+		#main {
+			display: flex;
+			justify-content: space-around;
+		}
+
+		#main button {
+			margin-top: 5px;
+			margin-bottom: 10px;
+			width: 3.5rem;
+			padding: 2px;
+		}
+
+		#myta {
+			width: 98%;
+			background-color: white;
+			height: 2.8rem;
+		}
+		#myta.error{
+			width: 98%;
+			background-color: pink;
+		}
+
+		#presets table {
+			width: 100%;
+		}
+
+		#presets td.name {
+			width: 75%;
+		}
+
+		#presets td.button {
+			width: 25%;
+		}
+
+		#presets input {
+			width: 98%;
+		}
+
+		#presets button {
+			width: 3.2rem;
+			padding: 2px;
+			margin: 2px;
+		}
+		#btnAdd:not(.hide){
+			display: block;
+		}
+		#btnDel:not(.show){
+			display: none;
+		}
+		#btnAdd.hide{
+			display: none;
+		}
+		#btnDel.show{
+			display: block;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="main">
+		<button id="btnInfo" class="locales">Info</button>
+		<button id="btnThis" class="locales">Update</button>
+		<button id="btnNew" class="locales">Open</button>
+		<button id="btnClear" class="locales">Clear</button>
+	</div>
+	<div id="textareas">
+		<textarea id="myta" cols="30" rows="2" spellcheck="false"></textarea>
+	</div>
+	<div id="presets">
+		<table>
+			<tbody>
+				<tr>
+					<td class="name">
+						<input type="text" id="presetTitle">
+					</td>
+					<td class="button">
+						<button id="btnAdd" class="locales">Add</button>
+						<button id="btnDel" class="locales">Del</button>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</body>
+
+</html>

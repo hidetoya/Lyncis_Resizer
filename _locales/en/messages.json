@@ -1,0 +1,27 @@
+{
+	"extDesc": {
+		"description": "Extension description.",
+		"message": "It resizes the browser window to the specified position and size, or open it to the specified position and size."
+	},
+	"btnInfo": {
+		"message": "Info"
+	},
+	"btnThis": {
+		"message": "Update"
+	},
+	"btnNew": {
+		"message": "Open"
+	},
+	"btnClear": {
+		"message": "Clear"
+	},
+	"btnAdd": {
+		"message": "Add"
+	},
+	"btnDel": {
+		"message": "Del"
+	},
+	"btnSet": {
+		"message": "Set"
+	}
+}

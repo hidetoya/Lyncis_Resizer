@@ -1,0 +1,27 @@
+{
+	"extDesc": {
+		"description": "拡張機能の説明",
+		"message": "ブラウザのウィンドウを指定した位置とサイズでリサイズ、または指定位置とサイズで開きます。"
+	},
+	"btnInfo": {
+		"message": "情報"
+	},
+	"btnThis": {
+		"message": "更新"
+	},
+	"btnNew": {
+		"message": "新規"
+	},
+	"btnClear": {
+		"message": "クリア"
+	},
+	"btnAdd": {
+		"message": "追加"
+	},
+	"btnDel": {
+		"message": "削除"
+	},
+	"btnSet": {
+		"message": "セット"
+	}
+}
