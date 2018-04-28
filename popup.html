@@ -8,6 +8,7 @@
 	<style>
 		body{
 			width: 240px;
+			background-color: #f0f0f0;
 		}
 		body, textarea, button, input{
 			font-family: sans-serif;
@@ -71,7 +72,7 @@
 	</style>
 </head>
 
-<body>
+<body spellcheck="false"><!-- spellcheck属性は Chromeは不要 Firefoxでは必要-->
 	<div id="main">
 		<button id="btnInfo" class="locales">Info</button>
 		<button id="btnThis" class="locales">Update</button>
@@ -79,7 +80,7 @@
 		<button id="btnClear" class="locales">Clear</button>
 	</div>
 	<div id="textareas">
-		<textarea id="myta" cols="30" rows="2" spellcheck="false"></textarea>
+		<textarea id="myta" cols="30" rows="2"></textarea>
 	</div>
 	<div id="presets">
 		<table>

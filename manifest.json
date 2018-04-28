@@ -1,0 +1,24 @@
+﻿{
+	"manifest_version": 2,
+	"name": "Lyncis Resizer",
+	"version": "2.2.0",
+	"default_locale": "en",
+	"description": "__MSG_extDesc__",
+	"icons": {
+		"32": "icons/Resizer32.png",
+		"48": "icons/Resizer48.png"
+	},
+	"browser_action": {
+		"default_icon": "icons/Resizer32.png",
+		"default_title": "Lyncis Resizer",
+		"default_popup": "popup.html"
+	},
+	"background": {
+		"scripts": [
+			"background.js"
+		]
+	},
+	"permissions":[
+		"storage"
+	]
+}

@@ -28,7 +28,9 @@ function setLocales(){
 
 //初期データ (ストアデータと同形式)《大文字に注意》
 InitialData = {
-		PSOrder: ["640x480", "800x600", "1024x768"]
+		"PSOrder": ["640x480", "800x600", "1024x768"]
+	, "backgroundColor":"#f0f0f0"
+	, "fontSize":"12px"
 	,	"ps_640x480": '{"left":10,"top":10,"width":640,"height":480}'
 	,	"ps_800x600": '{"left":10,"top":10,"width":800,"height":600}'
 	,	"ps_1024x768": '{"left":10,"top":10,"width":1024,"height":768}'
@@ -55,12 +57,18 @@ function initialize(initialData) {
 	if(initialData.PSOrder) PSOrder = initialData.PSOrder;
 	chrome.storage.local.set({"PSOrder": PSOrder});
 
+	// bgcolor and fontsize
+	chrome.storage.local.set({
+		  "backgroundColor": initialData.backgroundColor
+		, "fontSize": initialData.fontSize
+	});
+
 	//ログ
-	bg.log("presets2",presets2);
-	bg.log("PSOrder",PSOrder);
+	bg.log("initialize : presets2",presets2);
+	bg.log("initialize : PSOrder",PSOrder);
 	//ストアデータ読込(テスト)
 	chrome.storage.local.get(null,function(allitems){
-		bg.log("allitems");
+		bg.log("initialize : allitems from storage");
 		bg.log(allitems);
 	});//.get
 
@@ -84,12 +92,13 @@ function putInfo() {
 function applyNewWindow() {
 	let myta = document.getElementById("myta");
 	let order;
-
 	myta.classList.remove("error"); //clear
+
 	try {
 		order = JSON.parse(myta.value);
 	} catch (e) {
 		myta.classList.add("error");
+		bg.log("Parse error: invalid JSON");
 		return;
 	}
 	
@@ -101,36 +110,65 @@ function applyNewWindow() {
 function applyThisWindow() {
 	let myta = document.getElementById("myta");
 	let order;
+	myta.classList.remove("error"); //clear
 
-	//import
-	if(myta.value.match(/\s*import\s*:/)){
+	//backgroundColor:
+	//* TODO ストレージ保存,書式チェック
+	//* example white,#ffffcc(薄い黄色)
+	//* example Browsizer
+	//		body bgcolor: rgb(240,240,240) = #f0f0f0
+	//		button bgcolor: rgb(225,225,225)
+	if(myta.value.match(/^\s*backgroundColor\s*:/)){
+		setBgColor(myta.value);
+		return;
+	}
+
+	//fontSize:
+	if(myta.value.match(/^\s*fontSize\s*:/)){
+		setFontSize(myta.value);
+		return;
+	}
+
+	//about:
+	if(myta.value.match(/^\s*about\s*:/)){
+		let v=chrome.runtime.getManifest().version;
+		myta.value = "Lyncis Resizer - "
+			+ "version "+v+"\n"
+			+ "Copyright (c) hidetoya"
+		;
+		return;
+	}//if
+
+	//import:
+	if(myta.value.match(/^\s*import\s*:/)){
 		importPresets(myta);
 		return;
 	}
 	
-	//reset
-	if(myta.value.match(/\s*reset\s*:/)){
+	//reset:
+	if(myta.value.match(/^\s*reset\s*:/)){
 		resetData();
 		return;
 	}
 	
-	//export
-	if(myta.value.match(/\s*export\s*:/)){
+	//export:
+	if(myta.value.match(/^\s*export\s*:/)){
 		exportPresets(myta);
 		return;
 	}
 
-	myta.classList.remove("error"); //clear
+	//default: {...}
 	try {
 		order = JSON.parse(myta.value);
 	} catch (e) {
 		myta.classList.add("error");
+		bg.log("Parse error:invalid JSON");
 		return;
 	}
 	delete order.exec; //execプロパティがあれば削除
 	order.focused = true;
 	chrome.windows.getCurrent(null, function (w) {
-		console.log("debug:",w.id);
+		bg.log("chrome.windows.getCurrent:",w.id);
 		chrome.windows.update(w.id, order);
 	});
 } //f.applyThisWindow
@@ -143,19 +181,24 @@ function resetData(){
 
 //◆エクスポート
 function exportPresets(myta){
-	let obj = {
-		"PSOrder": PSOrder
-	};
-	for(let key of PSOrder){
-		obj["ps_"+key]=presets2[key];
-	}
-	let txt = JSON.stringify(obj);
-	txt = txt
-		.replace(/:"\{/g,":'{")
-		.replace(/\}"/g,"}'")
-		.replace(/\\"/g,'"')
-	;
-	myta.value = txt;
+	chrome.storage.local.get(["backgroundColor","fontSize"], function(items){
+		let obj = {
+			  "PSOrder": PSOrder
+			, "backgroundColor": items.backgroundColor
+			, "fontSize": items.fontSize
+		};//プロパティの並び順は定義した順のようだ ココ重要
+		for(let key of PSOrder){
+			obj["ps_"+key]=presets2[key];
+		}
+		let txt = JSON.stringify(obj);
+		txt = txt
+			.replace(/:"\{/g,":'{")
+			.replace(/\}"/g,"}'")
+			.replace(/\\"/g,'"')
+		;//^ 外側のダブル引用符をシングル引用符にして内側のエスケープを除去
+		myta.value = txt;
+	});//storage..get f.
+
 }//f.exportsPresets
 
 //◆インポート
@@ -165,6 +208,7 @@ function importPresets(myta){
 	
 	if(0<obj) {
 		myta.classList.add("error");
+		bg.log("Import error: Import was canceled.");
 		return;
 	}
 	initialize(obj); //データの初期化
@@ -174,90 +218,129 @@ function importPresets(myta){
 //◆インポートデータのパース
 function parseImportData(itxt){
 	//console.log(itxt);
-/*
-	//サンプル(1)
-	let InitialData = {
-			PSOrder: ["640x480", "800x600", "1024x768"]
-		,	"ps_640x480": '{"left":10,"top":10,"width":640,"height":480}'
-		,	"ps_800x600": '{"left":10,"top":10,"width":800,"height":600}'
-		,	"ps_1024x768": '{"left":10,"top":10,"width":1024,"height":768}'
-	}; //InitialData
-	let itxt="import:"+JSON.stringify(InitialData);
-	console.log(itxt);
-
-	{"PSOrder":["640x480","800x600","1024x768"],"ps_640x480":"{\"left\":10,\"top\":10,\"width\":640,\"height\":480}","ps_800x600":"{\"left\":10,\"top\":10,\"width\":800,\"height\":600}","ps_1024x768":"{\"left\":10,\"top\":10,\"width\":1024,\"height\":768}"}
-*/
-
-/*
-	//サンプル(2)
-	let itxt=`
-		import:{
-			PSOrder: ["640x480", "800x600", "1024x768","メイン","サブ"]
-		,	"ps_640x480": '{"left":10,"top":10,"width":640,"height":480}'
-		,	"ps_800x600": '{"left":10,"top":10,"width":800,"height":600}'
-		,	"ps_1024x768": '{"left":10,"top":10,"width":1024,"height":768}'
-		,	"ps_メイン": '{"left":10,"top":10,"width":1024,"height":768}'
-		,	"ps_サブ": '{"left":10,"top":10,"width":1024,"height":768}'
-		}
-	`;
-*/
 
 	//正規表現による定義
-	//^ バックスラッシュのエスケープに注意。また読みやすくするため空白と「(#」には特別な意味があるので注意
+	//^ バックスラッシュのエスケープに注意。また読みやすくするため、空白と「(#」に特別な意味を持たせたので注意
 	const baseD = ` import : \\{ body\\} `;
-	const bodyD = `psorder , presets (?:, presets )*`;
-	const psorderD = `(#:PSOrder|"PSOrder") : pso_arr`; //#:$1
-	const pso_arrD = `\\[ (#:dquo (?:, dquo)*) \\]`; //#:$2
+	const bodyD = `psorder (#:, bgcolor)? (#:, fontsize )? , presets (?:, presets )*`; //#:$2 $3
+	const bgcolorD = `"backgroundColor" : dquo`;
+	const fontsizeD = `"fontSize" : dquo`;
+	const psorderD = `(?:PSOrder|"PSOrder") : pso_arr`;
+	const pso_arrD = `\\[ (#:dquo (?:, dquo)*) \\]`; //#:$1
 	const presetsD=`"(#:ps_[^"]+)" : (#:squo|dquo)`;
-	//^ #:$3,#5,... #:$4,#6,...のように、マッチする部分が増えても参照番号は増えない。#5,#6には最後にマッチする部分が代入されるようだ
+	//^ #:$4 $5 $6 $7 量指定子「*」でマッチする部分が増えても参照番号は増えない。$6 $7には最後にマッチする部分が代入されるようだ
 	const dquoD=`"(?:[^"]+)"`;
 	//^ エスケープ「\"」は別途考慮している
 	const squoD=`'(?:[^']+)'`;
 
 	//正規表現の構築
 	let re=baseD;//文字列形式の正規表現
-	re=re.replace(/body/,bodyD)
+	re=re
+		.replace(/body/,bodyD)
 		.replace(/psorder/,psorderD)
+		.replace(/bgcolor/,bgcolorD)
+		.replace(/fontsize/,fontsizeD)
 		.replace(/pso_arr/,pso_arrD)
 		.replace(/presets/g,presetsD)
 		.replace(/dquo/g,dquoD)
 		.replace(/squo/g,squoD)
 	;
+
+	//正規表現による定義 (blank用)
+	const bodyBD=`psorder (#:, bgcolor)? (#:, fontsize )? `; //#:$1 $2
+	const pso_arrBD = `\\[ \\]`;
+	
+	//正規表現の構築 (blank用)
+	let re_blank=baseD;
+	re_blank=re_blank
+		.replace(/body/,bodyBD)
+		.replace(/psorder/,psorderD)
+		.replace(/bgcolor/,bgcolorD)
+		.replace(/fontsize/,fontsizeD)
+		.replace(/pso_arr/,pso_arrBD)
+		.replace(/dquo/g,dquoD)
+	;
+
 	//フリーフォーマット化
 	re=re.replace(/ /g,"\\s*");
+	re_blank=re_blank.replace(/ /g,"\\s*");
 
-	//参照マーク「(#:」の置換
+	//「(#:」の置換
 	re=re.replace(/\(#:/g,"(");
+	re_blank=re_blank.replace(/\(#:/g,"(");
 	//^ 以上で基本構築終わり
 
+///*
 	//debug
 	let re_debug0=re;
 	let re_debugN=re.replace(/\((?!\?)/g,"#").replace(/[^#]/g,".");
-	console.log("//"+re_debug0+"\n//"+re_debugN);
-	//\s*import\s*:\s*\{\s*(PSOrder|"PSOrder")\s*:\s*\[\s*("(?:\"|[^\"])+"\s*(?:,\s*"(?:\"|[^\"])+")*)\s*\]\s*,\s*"(ps_[^"]+)"\s*:\s*('(?:[^']+)'|"(?:\"|[^\"])+")\s*(?:,\s*"(ps_[^"]+)"\s*:\s*('(?:[^']+)'|"(?:\"|[^\"])+")\s*)*\}\s*
-	//.....................#..............................#........................................................#.................#.......................................#.................#......................................
+	bg.log("//"+re_debug0+"\n//"+re_debugN);
+	//\s*import\s*:\s*\{\s*(?:PSOrder|"PSOrder")\s*:\s*\[\s*("(?:[^"]+)"\s*(?:,\s*"(?:[^"]+)")*)\s*\]\s*(,\s*"backgroundColor"\s*:\s*"(?:[^"]+)")?\s*(,\s*"fontSize"\s*:\s*"(?:[^"]+)"\s*)?\s*,\s*"(ps_[^"]+)"\s*:\s*('(?:[^']+)'|"(?:[^"]+)")\s*(?:,\s*"(ps_[^"]+)"\s*:\s*('(?:[^']+)'|"(?:[^"]+)")\s*)*\}\s*
+	//......................................................#...........................................#............................................#.............................................#.................#...................................#.................#..................................
+
+//*/
 
 	//文字列全体のマッチング -- results
 	let rgex=new RegExp("^"+re+"$");
+	let rgex_blank=new RegExp("^"+re_blank+"$");
 	itxt=itxt.replace(/\\"/g,"\x1B"); //「\"」のエスケープ
 	let results = itxt.match(rgex);
 	//^ mオプションがないので 1行ごとではなく、文字列全体のマッチングとなる
-	/* 結果の一例
-	1: "PSOrder"
-	2: `"640x480", "800x600", "1024x768"`
-	3: "ps_640x480"
-	4: `'{"left":10,"top":10,"width":640,"height":480}'`
-	5: "ps_1024x768"
-	6: `'{"left":10,"top":10,"width":1024,"height":768}'`
+
+	/* 結果の一例 ``で括ってある ()はblankの場合
+	$1(--): `"640x480","800x600","1024x768"`
+	---
+	$2($1): `,"backgroundColor":"test1"` または undefined
+	$3($2): `,"fontSize":"test2"↵`  または undefined
+	--- 最初のプリセット
+	$4: `ps_640x480`
+	$5: `'{"left":10,"top":10,"width":640,"height":480}'`
+	--- 最後のプリセット(2個以上の場合)
+	$6: `ps_1024x768`
+	$7: `'{"left":10,"top":10,"width":1024,"height":768}'`
 	*/
-	if(!results) {
-		console.error("Not match");
-		return 1;
+
+	let bgColor;
+	let fontSize;
+	function refreshStylesData(bgColor,fontSize){
+		if(!bgColor) bgColor=InitialData.backgroundColor;
+		if(!fontSize) fontSize=InitialData.fontSize
+		chrome.storage.local.set({"backgroundColor":bgColor});
+		chrome.storage.local.set({"fontSize":fontSize});
 	}
+
+	if(!results) {
+		let resultsB = itxt.match(rgex_blank);
+		if(resultsB) {
+			//blankプリセットの場合
+			bg.log("Import: blank presets");
+			//bgcolor and fontsize
+			if(resultsB[1]){
+				bgColor=resultsB[1].match(/:\s*"([^"]+)"/)[1];
+			}
+			if(resultsB[2]){
+				fontSize=resultsB[2].match(/:\s*"([^"]+)"/)[1];
+			}
+			refreshStylesData(bgColor,fontSize);
+			return { PSOrder: [] };
+		} else {
+			bg.log("Import error: Not match");
+			return 1;
+		}//if itxt.match(rgex_blank)
+	}//if !results
+
+	// bgcolor and fontsize
+	if(results[2]){
+		bgColor=results[2].match(/:\s*"([^"]+)"/)[1];
+	}
+	if(results[3]){
+		fontSize=results[3].match(/:\s*"([^"]+)"/)[1];
+	}
+	refreshStylesData(bgColor,fontSize);
 
 	//可変長部分のマッチ -- つまり 各presetsのマッチ
 	let retval = { PSOrder: [] }; //戻り値用
-	let pso = results[2].split(/\s*,\s*/);
+	let pso = results[1].split(/\s*,\s*/);
 	for(let i=0;i<pso.length;i++){
 		let key = pso[i].replace(/"/g,''); //引用符の削除
 		retval.PSOrder[i]=key; //保存
@@ -278,19 +361,61 @@ function parseImportData(itxt){
 		2: `'{"left":10,"top":10,"width":640,"height":480}'`
 		*/
 		if(!part_variable) {
-			console.error("Not match: in part_variable");
+			bg.log("Import error: Not match in part_variable");
 			return 2;
 		}
 		let title=part_variable[1];
 		let pstxt=part_variable[2].substr(1,part_variable[2].length-2); //引用符の除去
 		pstxt=pstxt.replace(/\x1B/g,'"'); //「\"」のアンエスケープ
-		console.log(i+"\ntitle:<"+title+">\npstxt:<"+pstxt+">\n");
+		bg.log(i+"\ntitle:<"+title+">\npstxt:<"+pstxt+">\n");
 		retval[title]=pstxt; //保存
 	}//for
-	//console.log(retval);
 	return retval;
 }//f.parseImportData
 
+//◆背景色の設定
+function setBgColor(txt){
+	let	r = txt.match(
+		/^\s*backgroundColor\s*:\s*(\S.*)/
+		//                         1    1
+	);
+	if(r){
+		let val=r[1];
+		let body=document.body;
+		body.style.backgroundColor = val;
+		//ストレージ保存
+		chrome.storage.local.set({"backgroundColor":val});
+		return;
+	}//if
+}//f.setBgColor
+
+//◆フォントの設定
+function setFontSize(txt){
+	let	r = txt.match(
+		/^\s*fontSize\s*:\s*(\S.*)/
+		//                  1    1
+	);
+	if(r){
+		let val=r[1];
+		let newStyle=document.createElement("style");
+		newStyle.id="setFontSize";
+		newStyle.textContent
+			= '\nbody, textarea, button, input{\n'
+			+ 'font-size:'+val+' !important;\n'
+			+ '}\n'
+		;
+		let insertedEl = document.getElementById("setFontSize");
+		if(insertedEl){
+			//#setFontSizeが挿入済
+			document.body.replaceChild(newStyle,insertedEl);
+		}else{
+			//#setFontSizeが未挿入
+			document.body.appendChild(newStyle);
+		}//if insertedEl
+		//ストレージ保存
+		chrome.storage.local.set({"fontSize":val});
+	}//if r
+}//f.setFontSize
 
 //◆テキストエリアのクリア
 function clearTA() {
@@ -299,18 +424,18 @@ function clearTA() {
 	myta.value = "";
 } //f.clearTA
 
-//◆プリセットの挿入・クリックイベント設定
+//◆全プリセットの挿入・クリックイベント設定
 function insertPresets() {
 	//ログ
-	bg.log("presets2 in insertPreset");
-	bg.log(presets2);
-	bg.log(PSOrder);
+	//bg.log("presets2 in insertPreset");
+	//bg.log(presets2);
+	//bg.log(PSOrder);
 
 	let ip = document.querySelector('#presets table>tbody');
 	let btnSet=chrome.i18n.getMessage("btnSet");
 	for (let i = PSOrder.length - 1; 0 <= i; i--) {
 		let title = PSOrder[i];
-/*
+/* Firefoxのアドオン審査で不合格になるので書き換え。メンテがしにくくなってしまった(;｡;)
 		ip.insertAdjacentHTML("afterbegin", `
 	<tr>
 		<td class="name">${title}</td>
@@ -323,15 +448,19 @@ function insertPresets() {
 		(function alt_insertAdjacentHTML(){
 			//BB/[AB]/BE/AE
 			let tr=document.createElement("tr");
+
 			let td1=document.createElement("td");
 			td1.classList.add("name");
 			td1.textContent=title;//サニタイズ？
+
 			let td2=document.createElement("td");
 			td2.classList.add("button");
+
 			let button=document.createElement("button");
 			button.classList.add("btnSet");
 			button.title=title;//サニタイズ？
 			button.textContent=btnSet;//サニタイズ？
+
 			tr.appendChild(td1);
 			tr.appendChild(td2);
 			td2.appendChild(button);
@@ -343,7 +472,7 @@ function insertPresets() {
 	let elms = document.querySelectorAll('#presets button.btnSet');
 	for (let i = 0; i < elms.length; i++) {
 		elms[i].addEventListener("click", function (ev) {
-			let title=this.title;
+			let title=this.title; //サニタイズから復元？
 			//既定処理
 			let myta = document.getElementById("myta");
 			myta.value = presets2[title];
@@ -373,6 +502,7 @@ function addPreset() {
 		parsed = JSON.parse(myta.value);
 	} catch (e) {
 		myta.classList.add("error");
+		bg.log("Parse error:invalid JSON");
 		return;
 	}
 
@@ -395,7 +525,7 @@ function addPreset() {
 	ip = ip.lastElementChild;
 
 	//html要素を最後のTRの直前に追加
-/*
+/* Firefoxのアドオン審査で不合格になるので書き換え。メンテがしにくくなってしまった(;｡;)
 	ip.insertAdjacentHTML("beforebegin", `
 <tr>
 	<td class="name">${title}</td>
@@ -405,7 +535,6 @@ function addPreset() {
 	</td>
 </tr>`);
 */
-
 	(function alt_insertAdjacentHTML(){
 		//[BB]/AB/BE/AE
 		let tr=document.createElement("tr");
@@ -450,14 +579,41 @@ function delPreset() {
 	});
 
 	//新版
+	//let escapedTitle = escapeHTML(title); //サニタイズ不要
 	let btn = document.querySelector(
-		`#presets button[title="${title}"]`
+		`#presets button[title="${title}"]` //サニタイズ不要
 	);
 	let tr = btn.closest("tr");
 	tr.remove();
 
 	document.getElementById("presetTitle").value = "";
 } //f.delPreset
+
+/* 不要
+//◆サニタイズ
+function escapeHTML(str){
+	return str.replace(/[<>&"'`]/g, function(match){
+		return {
+			  '<': '&lt;'
+			, '>': '&gt;'
+			, '&': '&amp;'
+			, '"': '&quot;'
+			, "'": '&#x27;'
+			, '`': '&#x60;'
+		}[match];
+	});//replace
+}//f.escapeHTML
+function unescapeHTML(str) {
+	return str
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&amp;/g, '&')
+		.replace(/&quot;/g, '"')
+		.replace(/&#x27;/g, "'")
+		.replace(/&#x60;/g, '`')
+	;
+}//f.unescapeHTML
+*/
 
 //◆ストアデータの読込(グローバル変数の再構築)
 /* globals retry_readStore:true*/
@@ -486,13 +642,25 @@ function readStore() {
 		} //for
 		PSOrder = allitems.PSOrder; //※グローバル変数
 
+		// bgcolor and fontsize スタイルの変更を実行
+		if(allitems.backgroundColor){
+			let key="backgroundColor:";
+			let val=allitems.backgroundColor;
+			setBgColor(key+val);
+		}
+		if(allitems.fontSize){
+			let key="fontSize:";
+			let val=allitems.fontSize;
+			setFontSize(key+val);
+		}
+
 		//ログ
-		bg.log("presets2",presets2);
-		bg.log("PSOrder",PSOrder);
+		//bg.log("presets2",presets2);
+		//bg.log("PSOrder",PSOrder);
 
 		//プリセットデータをドキュメントに挿入
 		insertPresets();
-	}); //.get
+	}); //storage..get
 } //f.readStore
 
 //◆メイン
@@ -533,17 +701,3 @@ document.addEventListener("DOMContentLoaded", function (ev) {
 		btnDel.classList.remove("show");
 	}); //EventListener
 }); //.addEventListener "DOMContentLoaded"
-
-function escapeHTML (str) {
-	return str.replace(/[&'`"<>]/g, function(match) {
-		return {
-				'<': '&lt;'
-			,	'>': '&gt;'
-			,	'&': '&amp;'
-			,	'"': '&quot;'
-			,	"'": '&#x27;'
-			,	'`': '&#x60;'
-		}[match];
-	});//replace
-}//f.escapeHTML
-
